@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "mem.h"
 #include "config.h"
+#include "handle_errs.h"
 #include "types.h"
 #include <arpa/inet.h>
 #include <inttypes.h>
@@ -74,4 +75,13 @@ free_bufs (message_buffers *bufs)
   deallocate_buffer (&bufs->resp.body);
   deallocate_buffer (&bufs->recv.head);
   deallocate_buffer (&bufs->recv.body);
+}
+
+void
+clear_bufs (message_buffers *bufs)
+{
+  memset (bufs->resp.head.payload, 0, bufs->resp.head.size - 1);
+  memset (bufs->resp.body.payload, 0, bufs->resp.body.size - 1);
+  memset (bufs->recv.head.payload, 0, bufs->recv.head.size - 1);
+  memset (bufs->recv.body.payload, 0, bufs->recv.body.size - 1);
 }

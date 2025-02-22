@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
 #include "header.h"
-#include "error.h"
+#include "handle_errs.h"
 #include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,7 +23,8 @@ make_header (char *line)
   if (!line)
     return NULL;
   regex_t regex;
-  int regi = regcomp (&regex, "^[[:alpha:]]+(-[[:alpha:]]+)*\\s*:\\s*\\S+$",
+  int regi = regcomp (&regex,
+                      "^[[:alpha:]]+(-[[:alpha:]]+)*\\s*:\\s*\\S+(\\s+\\S+)*$",
                       REG_EXTENDED);
   if (regi != 0)
     {
@@ -68,6 +69,8 @@ make_header (char *line)
 void
 free_data (header_data *data)
 {
+  if (data == NULL)
+    return;
   free (data->method);
   free (data->path);
   free (data->version);

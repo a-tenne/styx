@@ -14,6 +14,6 @@ cleanup (message_buffers *bufs)
   else
     {
       close (connection);
+      free_bufs (bufs);
     }
-  free_bufs (bufs);
 }

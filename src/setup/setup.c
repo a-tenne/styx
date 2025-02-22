@@ -54,17 +54,21 @@ setup (int argc, char const **argv)
   server_config *config = load_config (file_path ? file_path : DEFAULT_PATH);
   //  getting the fd from the socket() syscall using IPv4 and TCP
   server = socket (AF_INET, SOCK_STREAM, TCP);
-  if (server == -1)
+  if (server < 0)
     {
-      exit_error ("Server socket error");
+      exit_error ("server socket error");
+    }
+  const int enable = 1;
+  if (setsockopt (server, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof (int)) < 0)
+    {
+      exit_error ("cannot set socket options");
     }
   // set server struct
   sockaddr_in_p addr = make_ipv4 (config);
-  // initialize client struct and its length
-
+  // initialize client struct
   memset (&client_addr, 0, sizeof (client_addr));
   // bind server to socket and listen
-  if (bind (server, (struct sockaddr *)addr, sizeof (*addr)) == -1)
+  if (bind (server, (struct sockaddr *)addr, sizeof (*addr)) < 0)
     {
       free (config);
       exit_error ("cannot bind to port %u", ntohs (addr->sin_port));

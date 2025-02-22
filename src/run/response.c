@@ -1,6 +1,7 @@
 #include "response.h"
 #include "globals.h"
-#include "stdbool.h"
+#include "state.h"
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #define HEADER(bufs) (bufs->resp.head)
@@ -85,13 +86,14 @@ get_file (buffer *body, const char *path)
 }
 
 void
-response (message_buffers *bufs, header_data *request_data, status code)
+response (message_buffers *bufs, header_data *request_data,
+          connection_state *state)
 {
   bool result = false;
-  if (code == NOT_PROCESSED)
+  if (state->code == NOT_PROCESSED)
     {
     }
-  switch (code)
+  switch (state->code)
     {
 
     case CONTENT_TOO_LARGE:
@@ -114,8 +116,8 @@ response (message_buffers *bufs, header_data *request_data, status code)
         return;
       empty_buffer (&BODY (bufs));
 #ifdef DEBUG
-      if (code != INTERNAL_SERVER_ERROR)
-        warning ("invalid status code %d", code);
+      if (state->code != INTERNAL_SERVER_ERROR)
+        warning ("invalid status state->code %d", state->code);
 #endif
     }
 }

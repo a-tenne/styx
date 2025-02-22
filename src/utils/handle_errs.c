@@ -1,4 +1,4 @@
-#include "error.h"
+#include "handle_errs.h"
 #include "globals.h"
 #include "types.h"
 #include <errno.h>
@@ -13,6 +13,10 @@ exit_error (const char *error_msg, ...)
 {
   va_list list;
   va_start (list, error_msg);
+#ifndef TEST
+  perror (NULL);
+  errno = 0;
+#endif
   fprintf (stderr, "\033[1;31mERROR:\033[0m ");
   vfprintf (stderr, error_msg, list);
   fputc ('\n', stderr);
