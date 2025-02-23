@@ -23,6 +23,7 @@ handle_connection (message_buffers *bufs)
                              .current_request = 100 };
   while (state.keep_alive && state.current_request > 0)
     {
+
       fd_set read_fds;
       FD_ZERO (&read_fds);
       FD_SET (connection, &read_fds);
@@ -46,6 +47,7 @@ handle_connection (message_buffers *bufs)
       if (state.keep_alive)
         {
           --state.current_request;
+          state.code = NOT_PROCESSED;
           clear_bufs (bufs);
         }
     }
