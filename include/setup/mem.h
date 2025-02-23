@@ -1,6 +1,6 @@
 #pragma once
 #include "config.h"
-#include "types.h"
+#include "global_types.h"
 
 typedef struct
 {

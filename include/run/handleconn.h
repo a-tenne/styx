@@ -1,5 +1,5 @@
 #pragma once
+#include "global_types.h"
 #include "mem.h"
-#include "types.h"
 
 void handle_connection (message_buffers *bufs);

@@ -1,5 +1,5 @@
 #pragma once
-#include "types.h"
+#include "global_types.h"
 #include <arpa/inet.h>
 #include <signal.h>
 

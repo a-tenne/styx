@@ -1,6 +1,6 @@
 #include "handle_errs.h"
+#include "global_types.h"
 #include "globals.h"
-#include "types.h"
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>

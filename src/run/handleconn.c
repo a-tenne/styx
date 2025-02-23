@@ -19,9 +19,9 @@ handle_connection (message_buffers *bufs)
   connection_state state = { .code = NOT_PROCESSED,
                              .keep_alive = true,
                              .max_requests = 100,
-                             .timeout = { .tv_sec = 5, .tv_usec = 0 } };
-  int current_requests = state.max_requests;
-  while (state.keep_alive && current_requests > 0)
+                             .timeout = { .tv_sec = 5, .tv_usec = 0 },
+                             .current_request = 100 };
+  while (state.keep_alive && state.current_request > 0)
     {
       fd_set read_fds;
       FD_ZERO (&read_fds);
@@ -40,12 +40,12 @@ handle_connection (message_buffers *bufs)
       header_data *request_data = request (bufs, &state);
       if (state.code != CLOSE)
         {
-          // response (bufs, request_data, &state);
+          response (bufs, request_data, &state);
         }
       free_data (request_data);
       if (state.keep_alive)
         {
-          --current_requests;
+          --state.current_request;
           clear_bufs (bufs);
         }
     }

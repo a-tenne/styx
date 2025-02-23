@@ -1,8 +1,8 @@
 #define _GNU_SOURCE
 #include "mem.h"
 #include "config.h"
+#include "global_types.h"
 #include "handle_errs.h"
-#include "types.h"
 #include <arpa/inet.h>
 #include <inttypes.h>
 #include <stdlib.h>
