@@ -15,24 +15,20 @@ process_header_fields (header_data *data, connection_state *state)
   size_t content_length = 0;
   char *saveptr;
   char *token;
-  for (header temp = data->header_list.head; temp != NULL; temp = temp->next)
+  char *lookup = vec_lookup (&data->h_vec, "Content-Length");
+  if (lookup != NULL)
+    content_length = strtoul (lookup, NULL, 10);
+  lookup = vec_lookup (&data->h_vec, "Connection");
+  if (lookup != NULL)
     {
-      if (!strcmp ("Content-Length", temp->key))
+      token = strtok_r (lookup, ", ", &saveptr);
+      while (token)
         {
-          content_length = strtoul (temp->value, NULL, 10);
-        }
-      else if (!strcmp ("Connection", temp->key))
-        {
-          token = strtok_r (temp->value, ", ", &saveptr);
-          while (token)
-            {
-              if (!strcasecmp (token, "close"))
-                state->keep_alive = false;
-              token = strtok_r (NULL, ", ", &saveptr);
-            }
+          if (!strcasecmp (token, "close"))
+            state->keep_alive = false;
+          token = strtok_r (NULL, ", ", &saveptr);
         }
     }
-
   return content_length;
 }
 
@@ -51,7 +47,6 @@ request (message_buffers *bufs, connection_state *state)
       state->keep_alive = false;
       return NULL;
     }
-  bufs->recv.head.bytes_written += (size_t)bytes_read;
   if (bufs->recv.head.payload == NULL || *bufs->recv.head.payload == '\0')
     {
       puts ("Connection terminated: empty header");
@@ -69,16 +64,11 @@ request (message_buffers *bufs, connection_state *state)
   char *body_start = header_end + 4;
   char temp_char = *body_start;
   *body_start = '\0';
-  size_t body_len = 0;
+  size_t header_len = strnlen (bufs->recv.head.payload, bytes_read);
+  bufs->recv.head.bytes_written += header_len;
+  size_t body_len = bytes_read - header_len;
   header_data *data = parse (bufs->recv.head.payload);
   *body_start = temp_char;
-  for (header h = data->header_list.head; h != NULL; h = h->next)
-    {
-      if (!strcasecmp ("Content-Length", h->key))
-        {
-          body_len = strtoul (h->value, NULL, 10);
-        }
-    }
   memmove (bufs->recv.body.payload, body_start, body_len);
   bufs->recv.body.bytes_written += body_len;
   *body_start = '\0';
@@ -94,7 +84,7 @@ request (message_buffers *bufs, connection_state *state)
       return data;
     }
   size_t content_length = process_header_fields (data, state);
-  bufs->recv.body.bytes_written = content_length;
+
   if (content_length > (size_t)(bufs->recv.body.size - 1))
     {
       state->code = CONTENT_TOO_LARGE;
@@ -126,5 +116,6 @@ request (message_buffers *bufs, connection_state *state)
   else
     puts (" empty body");
 #endif
+  bufs->recv.body.bytes_written = content_length;
   return data;
 }

@@ -44,6 +44,7 @@ handle_connection (message_buffers *bufs)
           break;
         }
       header_data *request_data = request (bufs, &state);
+
       if (state.code != CLOSE)
         {
           response (bufs, request_data, &state);
