@@ -4,7 +4,7 @@
   "recv_header_sz": 8192,
   "recv_body_sz": 2048,
   "resp_header_sz": 16384,
-  "resp_body_sz": 65536,
+  "resp_body_sz": 4194304,
   "timeout_s": 1,
   "max_clients": 10
 }

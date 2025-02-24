@@ -15,7 +15,7 @@
 file_descriptor server = 0, connection = 0;
 struct timeval interval;
 volatile sig_atomic_t running = 1;
-struct sockaddr_in client_addr;
+struct sockaddr_in client_addr = { 0 };
 socklen_t addr_len = sizeof (struct sockaddr_in);
 pid_t pid;
 
@@ -65,8 +65,6 @@ setup (int argc, char const **argv)
     }
   // set server struct
   sockaddr_in_p addr = make_ipv4 (config);
-  // initialize client struct
-  memset (&client_addr, 0, sizeof (client_addr));
   // bind server to socket and listen
   if (bind (server, (struct sockaddr *)addr, sizeof (*addr)) < 0)
     {

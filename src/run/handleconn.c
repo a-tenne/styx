@@ -21,7 +21,7 @@ handle_connection (message_buffers *bufs)
                              .max_requests = 100,
                              .timeout = { .tv_sec = 5, .tv_usec = 0 },
                              .current_request = 100 };
-  while (state.keep_alive && state.current_request > 0)
+  while (running && state.keep_alive && state.current_request > 0)
     {
 
       fd_set read_fds;
@@ -32,11 +32,16 @@ handle_connection (message_buffers *bufs)
       if (ret == -1)
         {
           free_bufs (bufs);
-          exit_error ("select() failed");
+          if (running)
+            exit_error ("select failed");
+          else
+            break;
         }
       if (ret == 0 || !FD_ISSET (connection, &read_fds))
         {
           puts ("Connection terminated: timeout");
+          free_bufs (bufs);
+          break;
         }
       header_data *request_data = request (bufs, &state);
       if (state.code != CLOSE)

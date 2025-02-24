@@ -41,7 +41,6 @@ request (message_buffers *bufs, connection_state *state)
 {
   ssize_t bytes_read = 0;
   char *header_end = NULL;
-  allocate_bufs (bufs);
   bytes_read = recv (connection, bufs->recv.head.payload,
                      bufs->recv.head.size - 1, 0);
 
@@ -52,6 +51,7 @@ request (message_buffers *bufs, connection_state *state)
       state->keep_alive = false;
       return NULL;
     }
+  bufs->recv.head.bytes_written += (size_t)bytes_read;
   if (bufs->recv.head.payload == NULL || *bufs->recv.head.payload == '\0')
     {
       puts ("Connection terminated: empty header");
@@ -67,12 +67,21 @@ request (message_buffers *bufs, connection_state *state)
       return NULL;
     }
   char *body_start = header_end + 4;
-  size_t body_len = 0;
-  for (char *ptr = body_start; *ptr; ++ptr)
-    ++body_len;
-  memmove (bufs->recv.body.payload, body_start, body_len);
+  char temp_char = *body_start;
   *body_start = '\0';
+  size_t body_len = 0;
   header_data *data = parse (bufs->recv.head.payload);
+  *body_start = temp_char;
+  for (header h = data->header_list.head; h != NULL; h = h->next)
+    {
+      if (!strcasecmp ("Content-Length", h->key))
+        {
+          body_len = strtoul (h->value, NULL, 10);
+        }
+    }
+  memmove (bufs->recv.body.payload, body_start, body_len);
+  bufs->recv.body.bytes_written += body_len;
+  *body_start = '\0';
 
   if (data == NULL)
     {
@@ -85,7 +94,7 @@ request (message_buffers *bufs, connection_state *state)
       return data;
     }
   size_t content_length = process_header_fields (data, state);
-
+  bufs->recv.body.bytes_written = content_length;
   if (content_length > (size_t)(bufs->recv.body.size - 1))
     {
       state->code = CONTENT_TOO_LARGE;
@@ -102,15 +111,18 @@ request (message_buffers *bufs, connection_state *state)
           return data;
         }
     }
-  else
-    {
-      bufs->recv.body.payload[content_length] = '\0';
-    }
+    /* else
+      {
+        bufs->recv.body.payload[content_length] = '\0';
+      } */
 #ifdef DEBUG
   print_data (data);
-  printf ("Body:");
-  if (*bufs->recv.body.payload)
-    printf ("\n%s\n", bufs->recv.body.payload);
+  printf ("Body:\n");
+  if (bufs->recv.body.bytes_written > 0)
+    {
+      write (1, bufs->recv.body.payload, bufs->recv.body.bytes_written);
+      putc ('\n', stdout);
+    }
   else
     puts (" empty body");
 #endif

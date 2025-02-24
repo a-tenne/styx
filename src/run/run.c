@@ -5,6 +5,8 @@
 #include <sys/select.h>
 #include <unistd.h>
 
+#include <stdio.h>
+
 void
 run (message_buffers *bufs)
 {
@@ -28,6 +30,7 @@ run (message_buffers *bufs)
       if (ret == 0 || !FD_ISSET (server, &read_fds))
         continue;
       connection = accept (server, (struct sockaddr *)&client_addr, &addr_len);
+
       if (connection == -1)
         {
           warning ("connection failed.");
@@ -42,13 +45,13 @@ run (message_buffers *bufs)
         }
       if (pid == 0)
         {
-          allocate_bufs (bufs);
           handle_connection (bufs);
           return;
         }
       else
         {
           close (connection);
+          connection = 0;
         }
     }
 }

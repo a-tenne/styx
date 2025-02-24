@@ -26,7 +26,8 @@ exit_error (const char *error_msg, ...)
   if (connection != -1 && connection != 0)
     close (connection);
 #ifndef TEST
-  printf ("Closing Server...\n");
+  if (pid != 0)
+    printf ("Closing Server...\n");
   exit (1);
 #endif
 }

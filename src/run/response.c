@@ -10,12 +10,11 @@
 #define BODY(bufs) (&bufs->resp.body)
 #define FORMAT_HEADER(http_code, msg) ("HTTP/1.1 " #http_code " " msg "\r\n")
 #define HEADER_FIELD(field, content) (field ": " content "\r\n")
-#define SEND(buf, result, length)                                             \
+#define SEND(buf, result)                                                     \
   do                                                                          \
     {                                                                         \
-      length = strlen (buf);                                                  \
-      result = send (connection, buf, length * sizeof (char), 0);             \
-      if (result != length)                                                   \
+      result = send (connection, buf.payload, buf.bytes_written, 0);          \
+      if (result != (ssize_t)buf.bytes_written)                               \
         return false;                                                         \
     }                                                                         \
   while (0)
@@ -24,24 +23,27 @@ static bool
 send_response (message *response)
 {
   ssize_t res = 0;
-  ssize_t len = 0;
-  SEND (response->head.payload, res, len);
-  SEND (response->body.payload, res, len);
-  printf ("message sent:\n%s%s", response->head.payload,
-          response->body.payload);
-
+  SEND (response->head, res);
+  SEND (response->body, res);
+#ifdef DEBUG
+  /* printf ("message sent:\n%s", response->head.payload);
+  write (1, response->body.payload, response->body.bytes_written);
+  putc ('\n', stdout); */
+#endif
   return true;
 }
 
 static bool
 copy_into_buffer (buffer *buff, const char *msg)
 {
-  if ((size_t)buff->size <= strlen (msg))
+  size_t copy_len = strlen (msg);
+  if ((size_t)buff->size - buff->bytes_written <= copy_len)
     {
       warning ("message too big for buffer");
       return false;
     }
   strcat (buff->payload, msg);
+  buff->bytes_written += copy_len;
   return true;
 }
 
@@ -82,7 +84,7 @@ get_mime_type (const char *path)
                      { .key = "gif", .value = "image/gif" } };
   const char *file_name;
   const char *file_ending;
-  if ((file_name = strrchr (path, '\\')) == NULL || *(++file_name) == '\0'
+  if ((file_name = strrchr (path, '/')) == NULL || *(++file_name) == '\0'
       || (file_ending = strrchr (file_name, '.')) == NULL
       || *(++file_ending) == '\0')
     return "application/octet-stream";
@@ -97,21 +99,21 @@ get_mime_type (const char *path)
 static status
 read_file (buffer *body, const char *path)
 {
-  char correct_path[sizeof (char) * 7 + strlen (path) + 1];
+  char correct_path[sizeof (char) * 6 + strlen (path) + 1];
   memset (correct_path, 0, sizeof (correct_path));
-  strcpy (correct_path, "static/");
+  strcpy (correct_path, "static");
   strcat (correct_path, path);
   status s;
   if (!strcmp ("/", path))
     {
-      s = read_file (body, "index.html");
-      return s == NOT_FOUND ? read_file (body, "index.htm") : s;
+      s = read_file (body, "/index.html");
+      return s == NOT_FOUND ? read_file (body, "/index.htm") : s;
     }
 
   FILE *fp = fopen (correct_path, "r");
   if (fp == NULL)
     {
-      warning ("cannot open %s", correct_path);
+      warning ("cannot open/find %s", correct_path);
       return NOT_FOUND;
     }
   if (fseek (fp, 0, SEEK_END) == -1)
@@ -141,6 +143,8 @@ read_file (buffer *body, const char *path)
       warning ("%s cannot be read correctly", correct_path);
       return INTERNAL_SERVER_ERROR;
     }
+  else
+    body->bytes_written += (size_t)file_size;
   return OK;
 }
 
@@ -174,7 +178,7 @@ response (message_buffers *bufs, header_data *request_data,
                                     "Content-Type: %s\r\n"
                                     "Content-Length: %lu\r\n",
                                     get_mime_type (request_data->path),
-                                    strlen (bufs->resp.body.payload));
+                                    bufs->resp.body.bytes_written);
 
           if (current_size < 0)
             {
@@ -203,67 +207,73 @@ response (message_buffers *bufs, header_data *request_data,
     {
     case CONTENT_TOO_LARGE:
       result = copy_into_buffer (HEADER (bufs),
-                                 FORMAT_HEADER (413, "Payload Too Large"))
-               && copy_into_buffer (HEADER (bufs), "\r\n");
+                                 FORMAT_HEADER (413, "Payload Too Large"));
       code_msg = "Payload Too Large";
       break;
     case REQU_HEAD_FIELDS_TOO_LARGE:
       result = copy_into_buffer (
-                   HEADER (bufs),
-                   FORMAT_HEADER (431, "Request Header Fields Too Large"))
-               && copy_into_buffer (HEADER (bufs), "\r\n");
+          HEADER (bufs),
+          FORMAT_HEADER (431, "Request Header Fields Too Large"));
       code_msg = "Request Header Fields Too Large";
       break;
     case NOT_IMPLEMENTED:
       result = copy_into_buffer (HEADER (bufs),
-                                 FORMAT_HEADER (501, "Not Implemented"))
-               && copy_into_buffer (HEADER (bufs), "\r\n");
+                                 FORMAT_HEADER (501, "Not Implemented"));
       code_msg = "Not Implemented";
       break;
     case NOT_FOUND:
       result
-          = copy_into_buffer (HEADER (bufs), FORMAT_HEADER (404, "Not Found"))
-            && copy_into_buffer (HEADER (bufs), "\r\n");
+          = copy_into_buffer (HEADER (bufs), FORMAT_HEADER (404, "Not Found"));
       code_msg = "Not Found";
       break;
     case BAD_REQUEST:
       result = copy_into_buffer (HEADER (bufs),
-                                 FORMAT_HEADER (400, "Bad Request"))
-               && copy_into_buffer (HEADER (bufs), "\r\n");
+                                 FORMAT_HEADER (400, "Bad Request"));
       code_msg = "Bad Request";
       break;
     case INSUFFICIENT_STORAGE:
       result = copy_into_buffer (HEADER (bufs),
-                                 FORMAT_HEADER (507, "Insufficient Storage"))
-               && copy_into_buffer (HEADER (bufs), "\r\n");
+                                 FORMAT_HEADER (507, "Insufficient Storage"));
       code_msg = "Insufficient Storage";
       break;
     case OK:
       result = copy_into_buffer (HEADER (bufs), FORMAT_HEADER (200, "Ok"))
 
-               && copy_into_buffer (HEADER (bufs), format_str)
-               && copy_into_buffer (HEADER (bufs), "\r\n");
+               && copy_into_buffer (HEADER (bufs), format_str);
       if (!strcmp ("HEAD", request_data->method))
-        *bufs->resp.body.payload = '\0';
+        {
+          bufs->resp.body.bytes_written = 0;
+        }
       break;
     case INTERNAL_SERVER_ERROR:
     default:
       result = copy_into_buffer (HEADER (bufs),
-                                 FORMAT_HEADER (500, "Internal Server Error"))
-               && copy_into_buffer (HEADER (bufs), "\r\n");
+                                 FORMAT_HEADER (500, "Internal Server Error"));
       code_msg = "Internal Server Error";
 #ifdef DEBUG
       if (state->code != INTERNAL_SERVER_ERROR)
         warning ("invalid status state->code %d", state->code);
 #endif
     }
+
+  size_t error_len = 0;
   if (state->code != OK)
     {
+
       memset (format_str, 0, BUFSIZ);
       sprintf (format_str, error_html, state->code, code_msg, state->code,
                code_msg);
+      error_len = strlen (format_str);
       result = result && copy_into_buffer (BODY (bufs), format_str);
+      memset (format_str, 0, BUFSIZ);
+      sprintf (format_str,
+               "Content-Type: text/html\r\nContent-Length: %lu\r\n",
+               error_len);
+      result = result && copy_into_buffer (HEADER (bufs), format_str);
     }
+
+  result = result && copy_into_buffer (HEADER (bufs), "\r\n");
+
   if (result && !send_response (&bufs->resp))
     warning ("response not sent properly");
 }

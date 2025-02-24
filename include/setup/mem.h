@@ -6,6 +6,7 @@ typedef struct
 {
   char *payload;
   long size;
+  size_t bytes_written;
 } buffer;
 
 typedef struct

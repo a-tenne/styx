@@ -58,6 +58,7 @@ setup_buffers (server_config *config)
   bufs.recv.body.size = config->recv_body_sz + 1;
   bufs.resp.head.size = config->resp_header_sz + 1;
   bufs.resp.body.size = config->resp_body_sz + 1;
+
   return &bufs;
 }
 
@@ -77,11 +78,18 @@ free_bufs (message_buffers *bufs)
   deallocate_buffer (&bufs->recv.body);
 }
 
+static void
+clear_buffer (buffer *buf)
+{
+  memset (buf->payload, 0, buf->size - 1);
+  buf->bytes_written = 0;
+}
+
 void
 clear_bufs (message_buffers *bufs)
 {
-  memset (bufs->resp.head.payload, 0, bufs->resp.head.size - 1);
-  memset (bufs->resp.body.payload, 0, bufs->resp.body.size - 1);
-  memset (bufs->recv.head.payload, 0, bufs->recv.head.size - 1);
-  memset (bufs->recv.body.payload, 0, bufs->recv.body.size - 1);
+  clear_buffer (&bufs->resp.head);
+  clear_buffer (&bufs->resp.body);
+  clear_buffer (&bufs->recv.head);
+  clear_buffer (&bufs->recv.body);
 }
