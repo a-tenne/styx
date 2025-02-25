@@ -1,4 +1,5 @@
 #include "setup.h"
+#include "errlog.h"
 #include "mem.h"
 #include <arpa/inet.h>
 #include <signal.h>
@@ -51,7 +52,7 @@ setup (int argc, char const **argv)
   pid = getpid ();
   const char *file_path = handle_args (argc, argv);
   static_exists ();
-  server_config *config = load_config (file_path ? file_path : DEFAULT_PATH);
+  server_config config = config_make (file_path ? file_path : DEFAULT_PATH);
   //  getting the fd from the socket() syscall using IPv4 and TCP
   server = socket (AF_INET, SOCK_STREAM, TCP);
   if (server < 0)
@@ -68,12 +69,12 @@ setup (int argc, char const **argv)
   // bind server to socket and listen
   if (bind (server, (struct sockaddr *)addr, sizeof (*addr)) < 0)
     {
-      free (config);
+      config_destroy (&config);
       exit_error ("cannot bind to port %u", ntohs (addr->sin_port));
     }
   if (listen (server, config->max_clients) == -1)
     {
-      free (config);
+      config_destroy (&config);
       exit_error ("cannot listen to port %u", ntohs (addr->sin_port));
     }
   message_buffers *bufs = setup_buffers (config);
@@ -84,6 +85,6 @@ setup (int argc, char const **argv)
   signal (SIGINT, signal_handler);
   printf ("Server running on port \033[0;32m%u\033[0m\n",
           ntohs (addr->sin_port));
-  free (config);
+  config_destroy (&config);
   return bufs;
 }

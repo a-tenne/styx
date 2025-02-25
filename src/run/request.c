@@ -2,6 +2,7 @@
 #include "debug.h"
 #endif
 #define _GNU_SOURCE
+#include "errlog.h"
 #include "globals.h"
 #include "request.h"
 #include "state.h"
@@ -101,10 +102,11 @@ request (message_buffers *bufs, connection_state *state)
           return data;
         }
     }
-    /* else
-      {
-        bufs->recv.body.payload[content_length] = '\0';
-      } */
+  /* else
+    {
+      bufs->recv.body.payload[content_length] = '\0';
+    } */
+  bufs->recv.body.bytes_written = content_length;
 #ifdef DEBUG
   print_data (data);
   printf ("Body:\n");
@@ -116,6 +118,5 @@ request (message_buffers *bufs, connection_state *state)
   else
     puts (" empty body");
 #endif
-  bufs->recv.body.bytes_written = content_length;
   return data;
 }

@@ -1,8 +1,8 @@
 #define _GNU_SOURCE
 #include "mem.h"
 #include "config.h"
+#include "errlog.h"
 #include "global_types.h"
-#include "handle_errs.h"
 #include <arpa/inet.h>
 #include <inttypes.h>
 #include <stdlib.h>
@@ -10,7 +10,7 @@
 #include <sys/mman.h>
 
 sockaddr_in_p
-make_ipv4 (server_config *config)
+make_ipv4 (server_config config)
 {
   static struct sockaddr_in addr;
   memset (&addr, 0, sizeof (addr));
@@ -47,13 +47,9 @@ allocate_bufs (message_buffers *bufs)
 }
 
 message_buffers *
-setup_buffers (server_config *config)
+setup_buffers (server_config config)
 {
   static message_buffers bufs;
-  if (config == NULL)
-    {
-      EXIT_ERROR (NULL, "config is null");
-    }
   bufs.recv.head.size = config->recv_header_sz + 1;
   bufs.recv.body.size = config->recv_body_sz + 1;
   bufs.resp.head.size = config->resp_header_sz + 1;

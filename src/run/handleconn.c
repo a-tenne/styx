@@ -1,4 +1,5 @@
 #include "handleconn.h"
+#include "errlog.h"
 #include "globals.h"
 #include "header.h"
 #include "mem.h"

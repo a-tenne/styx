@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "response.h"
+#include "errlog.h"
 #include "globals.h"
 #include "state.h"
 #include <stdbool.h>
@@ -34,7 +35,7 @@ send_response (message *response)
 }
 
 static bool
-copy_into_buffer (buffer *buff, const char *msg)
+buffer_append_str (buffer *buff, const char *msg)
 {
   size_t copy_len = strlen (msg);
   if ((size_t)buff->size - buff->bytes_written <= copy_len)
@@ -47,41 +48,43 @@ copy_into_buffer (buffer *buff, const char *msg)
   return true;
 }
 
+static const struct
+{
+  const char *key;
+  const char *value;
+} mime_types[] = { { .key = "html", .value = "text/html" },
+                   { .key = "htm", .value = "text/html" },
+                   { .key = "css", .value = "text/css" },
+                   { .key = "js", .value = "text/javascript" },
+                   { .key = "mjs", .value = "text/javascript" },
+                   { .key = "avif", .value = "image/avif" },
+                   { .key = "ico", .value = "image/vnd.microsoft.icon" },
+                   { .key = "jpeg", .value = "image/jpeg" },
+                   { .key = "jpg", .value = "image/jpeg" },
+                   { .key = "mp3", .value = "audio/mpeg" },
+                   { .key = "mp4", .value = "video/mp4" },
+                   { .key = "mpeg", .value = "video/mpeg" },
+                   { .key = "otf", .value = "font/otf" },
+                   { .key = "ttf", .value = "font/ttf" },
+                   { .key = "png", .value = "image/png" },
+                   { .key = "pdf", .value = "application/pdf" },
+                   { .key = "svg", .value = "image/svg+xml" },
+                   { .key = "txt", .value = "text/plain" },
+                   { .key = "wav", .value = "audio/wav" },
+                   { .key = "weba", .value = "audio/webm" },
+                   { .key = "webm", .value = "video/webm" },
+                   { .key = "webp", .value = "image/webp" },
+                   { .key = "xml", .value = "application/xml" },
+                   { .key = "json", .value = "application/json" },
+                   { .key = "jsonld", .value = "application/ld+json" },
+                   { .key = "gif", .value = "image/gif" } };
+
 static const char *
 get_mime_type (const char *path)
 {
   if (!strcmp ("/", path))
     return "text/html";
-  static const struct
-  {
-    const char *key;
-    const char *value;
-  } mime_types[] = { { .key = "html", .value = "text/html" },
-                     { .key = "htm", .value = "text/html" },
-                     { .key = "css", .value = "text/css" },
-                     { .key = "js", .value = "text/javascript" },
-                     { .key = "mjs", .value = "text/javascript" },
-                     { .key = "avif", .value = "image/avif" },
-                     { .key = "ico", .value = "image/vnd.microsoft.icon" },
-                     { .key = "jpeg", .value = "image/jpeg" },
-                     { .key = "jpg", .value = "image/jpeg" },
-                     { .key = "mp3", .value = "audio/mpeg" },
-                     { .key = "mp4", .value = "video/mp4" },
-                     { .key = "mpeg", .value = "video/mpeg" },
-                     { .key = "otf", .value = "font/otf" },
-                     { .key = "ttf", .value = "font/ttf" },
-                     { .key = "png", .value = "image/png" },
-                     { .key = "pdf", .value = "application/pdf" },
-                     { .key = "svg", .value = "image/svg+xml" },
-                     { .key = "txt", .value = "text/plain" },
-                     { .key = "wav", .value = "audio/wav" },
-                     { .key = "weba", .value = "audio/webm" },
-                     { .key = "webm", .value = "video/webm" },
-                     { .key = "webp", .value = "image/webp" },
-                     { .key = "xml", .value = "application/xml" },
-                     { .key = "json", .value = "application/json" },
-                     { .key = "jsonld", .value = "application/ld+json" },
-                     { .key = "gif", .value = "image/gif" } };
+
   const char *file_name;
   const char *file_ending;
   if ((file_name = strrchr (path, '/')) == NULL || *(++file_name) == '\0'
@@ -97,7 +100,7 @@ get_mime_type (const char *path)
 }
 
 static status
-read_file (buffer *body, const char *path)
+buffer_read_file (buffer *body, const char *path)
 {
   char correct_path[sizeof (char) * 6 + strlen (path) + 1];
   memset (correct_path, 0, sizeof (correct_path));
@@ -106,8 +109,8 @@ read_file (buffer *body, const char *path)
   status s;
   if (!strcmp ("/", path))
     {
-      s = read_file (body, "/index.html");
-      return s == NOT_FOUND ? read_file (body, "/index.htm") : s;
+      s = buffer_read_file (body, "/index.html");
+      return s == NOT_FOUND ? buffer_read_file (body, "/index.htm") : s;
     }
 
   FILE *fp = fopen (correct_path, "r");
@@ -148,30 +151,32 @@ read_file (buffer *body, const char *path)
   return OK;
 }
 
+static const char *error_html
+    = "<!DOCTYPE html>\n"
+      "<html lang=\"en\">\n"
+      "<head>\n"
+      "\t<meta charset=\"UTF-8\">\n"
+      "\t<meta name=\"viewport\" content=\"width=device-width, "
+      "initial-scale=1.0\">\n"
+      "\t<title>%d %s</title>\n"
+      "</head>\n"
+      "<body>\n"
+      "\t<h1>An error has occured: %d %s</h1>\n"
+      "</body>\n"
+      "</html>\n";
+
 void
 response (message_buffers *bufs, header_data *request_data,
           connection_state *state)
 {
-  static const char *error_html
-      = "<!DOCTYPE html>\n"
-        "<html lang=\"en\">\n"
-        "<head>\n"
-        "\t<meta charset=\"UTF-8\">\n"
-        "\t<meta name=\"viewport\" content=\"width=device-width, "
-        "initial-scale=1.0\">\n"
-        "\t<title>%d %s</title>\n"
-        "</head>\n"
-        "<body>\n"
-        "\t<h1>An error has occured: %d %s</h1>\n"
-        "</body>\n"
-        "</html>\n";
+
   bool result = false;
   char format_str[BUFSIZ] = { '\0' };
   char temp[BUFSIZ] = { '\0' };
   int current_size = BUFSIZ - 1;
   if (state->code == NOT_PROCESSED)
     {
-      state->code = read_file (&bufs->resp.body, request_data->path);
+      state->code = buffer_read_file (&bufs->resp.body, request_data->path);
       if (state->code == OK)
         {
           current_size -= snprintf (format_str, current_size,
@@ -205,41 +210,41 @@ response (message_buffers *bufs, header_data *request_data,
   const char *code_msg;
   switch (state->code)
     {
+    case BAD_REQUEST:
+      result = buffer_append_str (HEADER (bufs),
+                                  FORMAT_HEADER (400, "Bad Request"));
+      code_msg = "Bad Request";
+      break;
+    case NOT_FOUND:
+      result = buffer_append_str (HEADER (bufs),
+                                  FORMAT_HEADER (404, "Not Found"));
+      code_msg = "Not Found";
+      break;
     case CONTENT_TOO_LARGE:
-      result = copy_into_buffer (HEADER (bufs),
-                                 FORMAT_HEADER (413, "Payload Too Large"));
+      result = buffer_append_str (HEADER (bufs),
+                                  FORMAT_HEADER (413, "Payload Too Large"));
       code_msg = "Payload Too Large";
       break;
     case REQU_HEAD_FIELDS_TOO_LARGE:
-      result = copy_into_buffer (
+      result = buffer_append_str (
           HEADER (bufs),
           FORMAT_HEADER (431, "Request Header Fields Too Large"));
       code_msg = "Request Header Fields Too Large";
       break;
+
     case NOT_IMPLEMENTED:
-      result = copy_into_buffer (HEADER (bufs),
-                                 FORMAT_HEADER (501, "Not Implemented"));
+      result = buffer_append_str (HEADER (bufs),
+                                  FORMAT_HEADER (501, "Not Implemented"));
       code_msg = "Not Implemented";
       break;
-    case NOT_FOUND:
-      result
-          = copy_into_buffer (HEADER (bufs), FORMAT_HEADER (404, "Not Found"));
-      code_msg = "Not Found";
-      break;
-    case BAD_REQUEST:
-      result = copy_into_buffer (HEADER (bufs),
-                                 FORMAT_HEADER (400, "Bad Request"));
-      code_msg = "Bad Request";
-      break;
     case INSUFFICIENT_STORAGE:
-      result = copy_into_buffer (HEADER (bufs),
-                                 FORMAT_HEADER (507, "Insufficient Storage"));
+      result = buffer_append_str (HEADER (bufs),
+                                  FORMAT_HEADER (507, "Insufficient Storage"));
       code_msg = "Insufficient Storage";
       break;
     case OK:
-      result = copy_into_buffer (HEADER (bufs), FORMAT_HEADER (200, "Ok"))
-
-               && copy_into_buffer (HEADER (bufs), format_str);
+      result = buffer_append_str (HEADER (bufs), FORMAT_HEADER (200, "Ok"))
+               && buffer_append_str (HEADER (bufs), format_str);
       if (!strcmp ("HEAD", request_data->method))
         {
           bufs->resp.body.bytes_written = 0;
@@ -247,8 +252,8 @@ response (message_buffers *bufs, header_data *request_data,
       break;
     case INTERNAL_SERVER_ERROR:
     default:
-      result = copy_into_buffer (HEADER (bufs),
-                                 FORMAT_HEADER (500, "Internal Server Error"));
+      result = buffer_append_str (
+          HEADER (bufs), FORMAT_HEADER (500, "Internal Server Error"));
       code_msg = "Internal Server Error";
 #ifdef DEBUG
       if (state->code != INTERNAL_SERVER_ERROR)
@@ -264,15 +269,15 @@ response (message_buffers *bufs, header_data *request_data,
       sprintf (format_str, error_html, state->code, code_msg, state->code,
                code_msg);
       error_len = strlen (format_str);
-      result = result && copy_into_buffer (BODY (bufs), format_str);
+      result = result && buffer_append_str (BODY (bufs), format_str);
       memset (format_str, 0, BUFSIZ);
       sprintf (format_str,
                "Content-Type: text/html\r\nContent-Length: %lu\r\n",
                error_len);
-      result = result && copy_into_buffer (HEADER (bufs), format_str);
+      result = result && buffer_append_str (HEADER (bufs), format_str);
     }
 
-  result = result && copy_into_buffer (HEADER (bufs), "\r\n");
+  result = result && buffer_append_str (HEADER (bufs), "\r\n");
 
   if (result && !send_response (&bufs->resp))
     warning ("response not sent properly");

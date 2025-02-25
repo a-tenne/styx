@@ -1,4 +1,4 @@
-#include "handle_errs.h"
+#include "errlog.h"
 #include "global_types.h"
 #include "globals.h"
 #include <errno.h>
@@ -19,7 +19,7 @@ exit_error (const char *error_msg, ...)
 #endif
   fprintf (stderr, "\033[1;31mERROR:\033[0m ");
   vfprintf (stderr, error_msg, list);
-  fputc ('\n', stderr);
+  putc ('\n', stderr);
   va_end (list);
   if (server != -1 && server != 0)
     close (server);

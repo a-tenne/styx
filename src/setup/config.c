@@ -1,24 +1,35 @@
 #include "config.h"
 #include "cJSON.h"
-#include "handle_errs.h"
+#include "errlog.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#define PORT (1 << 0)
+#define ADDR (1 << 1)
+#define RECV_HEAD (1 << 2)
+#define RECV_BODY (1 << 3)
+#define RESP_HEAD (1 << 4)
+#define RESP_BODY (1 << 5)
+#define TIMEOUT (1 << 6)
+#define CLIENTS (1 << 7)
+#define IS_DUP(flags, mask) (flags & mask)
+#define SET_FLAG(flags, mask) (flags |= mask)
+
 static void
 free_ressources (server_config *config, cJSON *json)
 {
   if (config)
-    free (config);
+    config_destroy (config);
   if (json)
     cJSON_Delete (json);
 }
 
 static void
-map_vals (server_config *config, cJSON *json)
+config_map (server_config config, cJSON *json)
 {
-  unsigned char flags = 0;
+  uint8_t flags = 0;
   char *json_format = "{\n"
                       "\t\"port\": <number>,\n"
                       "\t\"ip\": <string>,\n"
@@ -31,10 +42,10 @@ map_vals (server_config *config, cJSON *json)
                       "}";
   long numval = 0;
   cJSON *origin = json;
-  if (!(json = json->child))
+  if ((json = json->child) == NULL)
     {
-      free_ressources (config, origin);
-      exit_error ("json incomplete. Expected format: %s", json_format);
+      free_ressources (&config, origin);
+      EXIT_ERROR (, "json incomplete. Expected format: %s", json_format);
     }
   while (json != NULL)
     {
@@ -43,8 +54,8 @@ map_vals (server_config *config, cJSON *json)
         case cJSON_String:
           if (strcmp (json->string, "ip"))
             {
-              free_ressources (config, origin);
-              exit_error ("Invalid attribute in json. Expected format: %s",
+              free_ressources (&config, origin);
+              EXIT_ERROR (, "Invalid attribute in json. Expected format: %s",
                           json_format);
             }
           if (IS_DUP (flags, ADDR))
@@ -57,8 +68,8 @@ map_vals (server_config *config, cJSON *json)
           numval = (long)json->valuedouble;
           if ((double)numval != json->valuedouble)
             {
-              free_ressources (config, origin);
-              exit_error ("config does not accept floating point numbers");
+              free_ressources (&config, origin);
+              EXIT_ERROR (, "config does not accept floating point numbers");
             }
 
           if (!strcmp (json->string, "port"))
@@ -69,8 +80,8 @@ map_vals (server_config *config, cJSON *json)
                 SET_FLAG (flags, PORT);
               if (numval < 1 || numval > UINT16_MAX)
                 {
-                  free_ressources (config, origin);
-                  exit_error ("invalid port number: %ld", numval);
+                  free_ressources (&config, origin);
+                  EXIT_ERROR (, "invalid port number: %ld", numval);
                 }
               config->port = numval;
             }
@@ -119,8 +130,8 @@ map_vals (server_config *config, cJSON *json)
             {
               if (numval <= 0)
                 {
-                  free_ressources (config, origin);
-                  exit_error ("max_clients can't be zero or less");
+                  free_ressources (&config, origin);
+                  EXIT_ERROR (, "max_clients can't be zero or less");
                 }
               if (IS_DUP (flags, CLIENTS))
                 warning ("max_clients set twice");
@@ -128,51 +139,51 @@ map_vals (server_config *config, cJSON *json)
                 SET_FLAG (flags, CLIENTS);
               if (numval > INT_MAX)
                 {
-                  free_ressources (config, origin);
-                  exit_error ("maximum value for max_clients(%d) exceeded.",
+                  free_ressources (&config, origin);
+                  EXIT_ERROR (, "maximum value for max_clients(%d) exceeded.",
                               INT_MAX);
                 }
               config->max_clients = numval;
             }
           else
             {
-              free_ressources (config, origin);
-              exit_error ("Invalid attribute in json. Expected format: %s",
+              free_ressources (&config, origin);
+              EXIT_ERROR (, "Invalid attribute in json. Expected format: %s",
                           json_format);
             }
           break;
         default:
-          free_ressources (config, origin);
-          exit_error ("Invalid attribute in json. Expected format: %s",
+          free_ressources (&config, origin);
+          EXIT_ERROR (, "Invalid attribute in json. Expected format: %s",
                       json_format);
         }
       json = json->next;
     }
-  if (flags != UCHAR_MAX)
+  if (flags != UINT8_MAX)
     {
-      free_ressources (config, origin);
-      exit_error ("json incomplete. Expected format: %s", json_format);
+      free_ressources (&config, origin);
+      EXIT_ERROR (, "json incomplete. Expected format: %s", json_format);
     }
 }
-server_config *
-load_config (const char *file_name)
+server_config
+config_make (const char *file_name)
 {
-  server_config *config = calloc (1, sizeof (*config));
-  if (!config)
+  server_config config = calloc (1, sizeof (*config));
+  if (config == NULL)
     {
-      exit_error ("calloc() failed in load_config() for config");
+      EXIT_ERROR (NULL, "cannot allocate memory for config");
     }
   FILE *file = fopen (file_name, "r");
-  if (!file)
+  if (file == NULL)
     {
-      free (config);
-      exit_error ("serverconfig.json cannot be opened");
+      config_destroy (&config);
+      EXIT_ERROR (NULL, "serverconfig.json cannot be opened");
     }
   if (fseek (file, 0, SEEK_END) == -1)
     {
       fclose (file);
-      free (config);
-      exit_error ("cannot find end of serverconfig.json");
+      config_destroy (&config);
+      EXIT_ERROR (NULL, "cannot find end of serverconfig.json");
     }
   long buf_size = ftell (file);
   char buf[buf_size + 1];
@@ -180,24 +191,31 @@ load_config (const char *file_name)
   if (buf_size <= 0)
     {
       fclose (file);
-      free (config);
-      exit_error ("cannot read serverconfig.json");
+      config_destroy (&config);
+      EXIT_ERROR (NULL, "cannot read serverconfig.json");
     }
   rewind (file);
   size_t bytes_read = fread (buf, buf_size, 1, file);
   fclose (file);
   if (bytes_read != 1)
     {
-      free (config);
-      exit_error ("serverconfig.json cannot be read correctly");
+      config_destroy (&config);
+      EXIT_ERROR (NULL, "serverconfig.json cannot be read correctly");
     }
   cJSON *json = cJSON_Parse (buf);
-  if (!json)
+  if (json == NULL)
     {
-      free (config);
-      exit_error (cJSON_GetErrorPtr ());
+      config_destroy (&config);
+      EXIT_ERROR (NULL, cJSON_GetErrorPtr ());
     }
-  map_vals (config, json);
+  config_map (config, json);
   cJSON_Delete (json);
   return config;
+}
+
+void
+config_destroy (server_config *config)
+{
+  free (*config);
+  *config = NULL;
 }

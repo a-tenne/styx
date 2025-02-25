@@ -29,9 +29,8 @@ typedef struct
  * Initializes a singleton, zeroes it and sets all values, then returns a
  * pointer to it.
  */
-sockaddr_in_p make_ipv4 (server_config *config);
-
-message_buffers *setup_buffers (server_config *config);
+sockaddr_in_p make_ipv4 (server_config config);
+message_buffers *setup_buffers (server_config config);
 void free_bufs (message_buffers *bufs);
 void allocate_bufs (message_buffers *bufs);
 void clear_bufs (message_buffers *bufs);

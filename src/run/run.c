@@ -1,5 +1,5 @@
+#include "errlog.h"
 #include "globals.h"
-#include "handle_errs.h"
 #include "handleconn.h"
 #include "mem.h"
 #include <sys/select.h>
