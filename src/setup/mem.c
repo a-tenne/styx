@@ -12,6 +12,7 @@
 sockaddr_in_p
 make_ipv4 (server_config config)
 {
+  NULL_CHECK (config, NULL);
   static struct sockaddr_in addr;
   memset (&addr, 0, sizeof (addr));
   addr.sin_family = AF_INET;
@@ -35,6 +36,7 @@ allocate_buffer (buffer *buf)
 void
 allocate_bufs (message_buffers *bufs)
 {
+  NULL_CHECK (bufs, );
   void *recv_head = allocate_buffer (&bufs->recv.head);
   void *recv_body = allocate_buffer (&bufs->recv.body);
   void *resp_head = allocate_buffer (&bufs->resp.head);
@@ -69,6 +71,7 @@ deallocate_buffer (buffer *buf)
 void
 free_bufs (message_buffers *bufs)
 {
+  NULL_CHECK (bufs, );
   deallocate_buffer (&bufs->resp.head);
   deallocate_buffer (&bufs->resp.body);
   deallocate_buffer (&bufs->recv.head);
@@ -81,10 +84,10 @@ clear_buffer (buffer *buf)
   memset (buf->payload, 0, buf->size - 1);
   buf->bytes_written = 0;
 }
-
 void
 clear_bufs (message_buffers *bufs)
 {
+  NULL_CHECK (bufs, );
   clear_buffer (&bufs->resp.head);
   clear_buffer (&bufs->resp.body);
   clear_buffer (&bufs->recv.head);

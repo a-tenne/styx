@@ -184,7 +184,7 @@ config_make (const char *file_name)
     {
       fclose (file);
       config_destroy (&config);
-      EXIT_ERROR (NULL, "cannot find end of serverconfig.json");
+      EXIT_ERROR (NULL, "cannot find end of %s", file_name);
     }
   long buf_size = ftell (file);
   char buf[buf_size + 1];
@@ -193,7 +193,7 @@ config_make (const char *file_name)
     {
       fclose (file);
       config_destroy (&config);
-      EXIT_ERROR (NULL, "cannot read serverconfig.json");
+      EXIT_ERROR (NULL, "cannot read %s", file_name);
     }
   rewind (file);
   size_t bytes_read = fread (buf, buf_size, 1, file);
@@ -201,13 +201,13 @@ config_make (const char *file_name)
   if (bytes_read != 1)
     {
       config_destroy (&config);
-      EXIT_ERROR (NULL, "serverconfig.json cannot be read correctly");
+      EXIT_ERROR (NULL, "%s cannot be read correctly", file_name);
     }
   cJSON *json = cJSON_Parse (buf);
   if (json == NULL)
     {
       config_destroy (&config);
-      EXIT_ERROR (NULL, cJSON_GetErrorPtr ());
+      EXIT_ERROR (NULL, "cJSON internal error");
     }
   config_map (config, json);
   cJSON_Delete (json);
