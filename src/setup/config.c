@@ -168,6 +168,7 @@ config_map (server_config config, cJSON *json)
 server_config
 config_make (const char *file_name)
 {
+  NULL_CHECK (file_name, NULL);
   server_config config = calloc (1, sizeof (*config));
   if (config == NULL)
     {
@@ -177,7 +178,7 @@ config_make (const char *file_name)
   if (file == NULL)
     {
       config_destroy (&config);
-      EXIT_ERROR (NULL, "serverconfig.json cannot be opened");
+      EXIT_ERROR (NULL, "file %s cannot be opened", file_name);
     }
   if (fseek (file, 0, SEEK_END) == -1)
     {

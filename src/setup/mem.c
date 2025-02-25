@@ -49,6 +49,7 @@ allocate_bufs (message_buffers *bufs)
 message_buffers *
 setup_buffers (server_config config)
 {
+  NULL_CHECK (config, NULL);
   static message_buffers bufs;
   bufs.recv.head.size = config->recv_header_sz + 1;
   bufs.recv.body.size = config->recv_body_sz + 1;

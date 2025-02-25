@@ -17,7 +17,7 @@ exit_error (const char *error_msg, ...)
   perror (NULL);
   errno = 0;
 #endif
-  fprintf (stderr, "\033[1;31mERROR:\033[0m ");
+  fprintf (stderr, ERROR_MSG ());
   vfprintf (stderr, error_msg, list);
   putc ('\n', stderr);
   va_end (list);
@@ -41,7 +41,7 @@ warning (const char *warning_msg, ...)
   if (errno)
     errno = 0;
 #endif
-  printf ("\033[1;35mWARNING:\033[0m ");
+  printf (WARN_MSG ());
   vprintf (warning_msg, list);
   putchar ('\n');
   va_end (list);

@@ -31,7 +31,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
 else()
     message(STATUS "Unknown build type: ${CMAKE_BUILD_TYPE}")
 endif()
-set(CMAKE_C_FLAGS_DEBUG "-g -DDEBUG")
+set(CMAKE_C_FLAGS_DEBUG "-g -DDEBUG -fsanitize=undefined,address")
 set(CMAKE_C_FLAGS_RELEASE "-O2 -Werror -DNDEBUG")
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/include)

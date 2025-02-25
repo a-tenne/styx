@@ -8,6 +8,9 @@
 #pragma once
 #include <stdarg.h>
 
+#define ERROR_MSG(msg) "\033[1;31mERROR:\033[0m " msg
+#define WARN_MSG(msg) "\033[1;35mWARNING:\033[0m " msg
+
 /**
  * @brief Prints out a formatted error message to stdout with a newline and
  * exits with error code 1.
@@ -22,7 +25,7 @@ void exit_error (const char *error_msg, ...);
  * program, when testing is enabled.
  */
 #define EXIT_ERROR(returnval, msg, ...)                                       \
-  (exit_error (msg __VA_OPT__ (, ) __VA_ARGS__))
+  exit_error (msg __VA_OPT__ (, ) __VA_ARGS__)
 #else
 /**
  * @brief Wrapper macro for returning from functions instead of crashing the
@@ -35,6 +38,14 @@ void exit_error (const char *error_msg, ...);
       return returnval;                                                       \
     }                                                                         \
   while (0)
+#endif
+
+#if defined(DEBUG) || defined(TEST)
+#define NULL_CHECK(ptr, returnval)                                            \
+  if (ptr == NULL)                                                            \
+  EXIT_ERROR (returnval, "%s cannot be NULL", #ptr)
+#else
+#define NULL_CHECK(ptr, returnval)
 #endif
 
 /**
