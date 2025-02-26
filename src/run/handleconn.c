@@ -34,14 +34,13 @@ handle_connection (message_buffers *bufs)
         {
           free_bufs (bufs);
           if (running)
-            exit_error ("select failed");
+            EXIT_ERROR (, "select failed");
           else
             break;
         }
       if (ret == 0 || !FD_ISSET (connection, &read_fds))
         {
           puts ("Connection terminated: timeout");
-          free_bufs (bufs);
           break;
         }
       header_data *request_data = request (bufs, &state);

@@ -1,11 +1,10 @@
+#include "cleanup.h"
 #include "errlog.h"
 #include "globals.h"
 #include "handleconn.h"
 #include "mem.h"
 #include <sys/select.h>
 #include <unistd.h>
-
-#include <stdio.h>
 
 void
 run (message_buffers *bufs)
@@ -46,6 +45,9 @@ run (message_buffers *bufs)
       if (pid == 0)
         {
           handle_connection (bufs);
+#ifdef TEST
+          cleanup (bufs);
+#endif
           return;
         }
       else

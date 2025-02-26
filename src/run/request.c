@@ -58,8 +58,17 @@ request (message_buffers *bufs, connection_state *state)
   header_end = strstr (bufs->recv.head.payload, "\r\n\r\n");
   if (header_end == NULL)
     {
-      warning ("request header size %ld exceeded", bufs->recv.head.size);
-      state->code = REQU_HEAD_FIELDS_TOO_LARGE;
+      if (bufs->recv.head.size - 1 == bytes_read)
+        {
+          warning ("request header size %ld exceeded", bufs->recv.head.size);
+          state->code = REQU_HEAD_FIELDS_TOO_LARGE;
+        }
+      else
+        {
+          warning ("connection not http");
+          state->code = CLOSE;
+          state->keep_alive = false;
+        }
       return NULL;
     }
   char *body_start = header_end + 4;

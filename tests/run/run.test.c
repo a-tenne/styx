@@ -1,17 +1,20 @@
 #include "run.h"
 #include "cJSON.h"
+#include "cleanup.h"
 #include "config.h"
 #include "setup.h"
 #include <criterion/criterion.h>
 #include <criterion/redirect.h>
 #include <pthread.h>
 #include <signal.h>
+#include <time.h>
 #include <unistd.h>
 
 static server_config config = NULL;
 static char file_name[100] = { '\0' };
 static const char *argv[] = { "./Tests", file_name, NULL };
 static int sig = 0;
+static struct timespec spec = { .tv_sec = 0, .tv_nsec = 20000 };
 
 static void
 setup_config (int port)
@@ -46,7 +49,7 @@ teardown_config (void)
 void *
 trigger_signal (void *_)
 {
-  sleep (1);
+  nanosleep (&spec, NULL);
   raise (sig);
   return _;
 }
@@ -62,6 +65,7 @@ Test (signals, sigint_breaks)
   message_buffers *bufs = setup (2, argv);
   pthread_create (&thread, NULL, trigger_signal, NULL);
   run (bufs);
+  cleanup (bufs);
   pthread_join (thread, NULL);
 }
 
@@ -74,5 +78,6 @@ Test (signals, sigterm_breaks)
   message_buffers *bufs = setup (2, argv);
   pthread_create (&thread, NULL, trigger_signal, NULL);
   run (bufs);
+  cleanup (bufs);
   pthread_join (thread, NULL);
 }
