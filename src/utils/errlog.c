@@ -25,9 +25,11 @@ exit_error (const char *error_msg, ...)
     close (server);
   if (connection != -1 && connection != 0)
     close (connection);
+  fflush (stderr);
 #ifndef TEST
   if (pid != 0)
     printf ("Closing Server...\n");
+  fflush (stdout);
   exit (1);
 #endif
 }
@@ -45,4 +47,5 @@ warning (const char *warning_msg, ...)
   vprintf (warning_msg, list);
   putchar ('\n');
   va_end (list);
+  fflush (stdout);
 }

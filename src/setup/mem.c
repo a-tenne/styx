@@ -20,8 +20,8 @@ make_ipv4 (server_config config)
   int err = inet_pton (AF_INET, config->addr, &addr.sin_addr.s_addr);
   if (err == 0 || err == -1)
     {
-      free (config);
-      EXIT_ERROR (NULL, "Invalid ip address.");
+      config_destroy (&config);
+      EXIT_ERROR (NULL, "invalid ip address");
     }
   return &addr;
 }
@@ -29,6 +29,10 @@ make_ipv4 (server_config config)
 static void *
 allocate_buffer (buffer *buf)
 {
+#if defined(DEBUG) || defined(TEST)
+  if (buf->size <= 0)
+    return NULL;
+#endif
   buf->payload = calloc (buf->size, sizeof (char));
   return buf->payload;
 }
@@ -44,7 +48,7 @@ allocate_bufs (message_buffers *bufs)
   if (!(recv_head && recv_body && resp_head && resp_body))
     {
       free_bufs (bufs);
-      EXIT_ERROR (, "Buffer allocation failed!");
+      EXIT_ERROR (, "buffer allocation failed");
     }
 }
 

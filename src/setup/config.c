@@ -1,7 +1,6 @@
 #include "config.h"
 #include "cJSON.h"
 #include "errlog.h"
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,17 +16,23 @@
 #define IS_DUP(flags, mask) (flags & mask)
 #define SET_FLAG(flags, mask) (flags |= mask)
 
-static void
-free_ressources (server_config *config, cJSON *json)
+void
+config_destroy (server_config *config)
 {
-  if (config)
-    config_destroy (config);
-  if (json)
-    cJSON_Delete (json);
+  free (*config);
+  *config = NULL;
 }
 
 static void
-config_map (server_config config, cJSON *json)
+free_ressources (server_config *config, cJSON **json)
+{
+  config_destroy (config);
+  cJSON_Delete (*json);
+  *json = NULL;
+}
+
+static void
+config_map (server_config *config, cJSON **json)
 {
   uint8_t flags = 0;
   char *json_format = "{\n"
@@ -41,38 +46,39 @@ config_map (server_config config, cJSON *json)
                       "\t\"max_clients\": <number>\n"
                       "}";
   long numval = 0;
-  cJSON *origin = json;
-  if ((json = json->child) == NULL)
+  cJSON **origin = json;
+  cJSON *current = *json;
+  if ((current = current->child) == NULL)
     {
-      free_ressources (&config, origin);
+      free_ressources (config, origin);
       EXIT_ERROR (, "json incomplete. Expected format: %s", json_format);
     }
-  while (json != NULL)
+  while (current != NULL)
     {
-      switch (json->type)
+      switch (current->type)
         {
         case cJSON_String:
-          if (strcmp (json->string, "ip"))
+          if (strcmp (current->string, "ip"))
             {
-              free_ressources (&config, origin);
-              EXIT_ERROR (, "Invalid attribute in json. Expected format: %s",
+              free_ressources (config, origin);
+              EXIT_ERROR (, "invalid attribute in json. Expected format: %s",
                           json_format);
             }
           if (IS_DUP (flags, ADDR))
             warning ("ip address set twice");
           else
             SET_FLAG (flags, ADDR);
-          strncpy (config->addr, json->valuestring, 15);
+          strncpy ((*config)->addr, current->valuestring, 15);
           break;
         case cJSON_Number:
-          numval = (long)json->valuedouble;
-          if ((double)numval != json->valuedouble)
+          numval = (long)current->valuedouble;
+          if ((double)numval != current->valuedouble)
             {
-              free_ressources (&config, origin);
+              free_ressources (config, origin);
               EXIT_ERROR (, "config does not accept floating point numbers");
             }
 
-          if (!strcmp (json->string, "port"))
+          if (!strcmp (current->string, "port"))
             {
               if (IS_DUP (flags, PORT))
                 warning ("port set twice");
@@ -80,91 +86,91 @@ config_map (server_config config, cJSON *json)
                 SET_FLAG (flags, PORT);
               if (numval < 1 || numval > UINT16_MAX)
                 {
-                  free_ressources (&config, origin);
+                  free_ressources (config, origin);
                   EXIT_ERROR (, "invalid port number: %ld", numval);
                 }
-              config->port = numval;
+              (*config)->port = numval;
             }
-          else if (!strcmp (json->string, "recv_header_sz"))
+          else if (!strcmp (current->string, "recv_header_sz"))
             {
               if (IS_DUP (flags, RECV_HEAD))
                 warning ("recv_header_sz set twice");
               else
                 SET_FLAG (flags, RECV_HEAD);
-              config->recv_header_sz = numval;
+              (*config)->recv_header_sz = numval;
             }
-          else if (!strcmp (json->string, "recv_body_sz"))
+          else if (!strcmp (current->string, "recv_body_sz"))
             {
               if (IS_DUP (flags, RECV_BODY))
                 warning ("recv_body_sz set twice");
               else
                 SET_FLAG (flags, RECV_BODY);
-              config->recv_body_sz = numval;
+              (*config)->recv_body_sz = numval;
             }
-          else if (!strcmp (json->string, "resp_header_sz"))
+          else if (!strcmp (current->string, "resp_header_sz"))
             {
               if (IS_DUP (flags, RESP_HEAD))
                 warning ("resp_header_sz set twice");
               else
                 SET_FLAG (flags, RESP_HEAD);
 
-              config->resp_header_sz = numval;
+              (*config)->resp_header_sz = numval;
             }
-          else if (!strcmp (json->string, "resp_body_sz"))
+          else if (!strcmp (current->string, "resp_body_sz"))
             {
               if (IS_DUP (flags, RESP_BODY))
                 warning ("resp_body_sz set twice");
               else
                 SET_FLAG (flags, RESP_BODY);
-              config->resp_body_sz = numval;
+              (*config)->resp_body_sz = numval;
             }
-          else if (!strcmp (json->string, "timeout_s"))
+          else if (!strcmp (current->string, "timeout_s"))
             {
               if (IS_DUP (flags, TIMEOUT))
                 warning ("timeout_s set twice");
               else
                 SET_FLAG (flags, TIMEOUT);
-              config->timeout_s = numval;
+              (*config)->timeout_s = numval;
             }
-          else if (!strcmp (json->string, "max_clients"))
+          else if (!strcmp (current->string, "max_clients"))
             {
               if (numval <= 0)
                 {
-                  free_ressources (&config, origin);
+                  free_ressources (config, origin);
                   EXIT_ERROR (, "max_clients can't be zero or less");
                 }
               if (IS_DUP (flags, CLIENTS))
                 warning ("max_clients set twice");
               else
                 SET_FLAG (flags, CLIENTS);
-              if (numval > INT_MAX)
+              if (numval > 100)
                 {
-                  free_ressources (&config, origin);
-                  EXIT_ERROR (, "maximum value for max_clients(%d) exceeded.",
-                              INT_MAX);
+                  free_ressources (config, origin);
+                  EXIT_ERROR (, "maximum value for max_clients(100) exceeded");
                 }
-              config->max_clients = numval;
+              (*config)->max_clients = numval;
             }
           else
             {
-              free_ressources (&config, origin);
-              EXIT_ERROR (, "Invalid attribute in json. Expected format: %s",
+              free_ressources (config, origin);
+              EXIT_ERROR (, "invalid attribute in json. Expected format: %s",
                           json_format);
             }
           break;
         default:
-          free_ressources (&config, origin);
-          EXIT_ERROR (, "Invalid attribute in json. Expected format: %s",
+          free_ressources (config, origin);
+          EXIT_ERROR (, "invalid attribute in json. Expected format: %s",
                       json_format);
         }
-      json = json->next;
+      current = current->next;
     }
   if (flags != UINT8_MAX)
     {
-      free_ressources (&config, origin);
+      free_ressources (config, origin);
       EXIT_ERROR (, "json incomplete. Expected format: %s", json_format);
     }
 }
+
 server_config
 config_make (const char *file_name)
 {
@@ -207,16 +213,9 @@ config_make (const char *file_name)
   if (json == NULL)
     {
       config_destroy (&config);
-      EXIT_ERROR (NULL, "cJSON internal error");
+      EXIT_ERROR (NULL, "json parsing failed");
     }
-  config_map (config, json);
+  config_map (&config, &json);
   cJSON_Delete (json);
   return config;
-}
-
-void
-config_destroy (server_config *config)
-{
-  free (*config);
-  *config = NULL;
 }

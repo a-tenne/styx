@@ -7,8 +7,10 @@
 #include <criterion/redirect.h>
 #include <stdio.h>
 #include <unistd.h>
+
 static server_config config = NULL;
-char file_name[100] = { '\0' };
+static char file_name[100] = { '\0' };
+
 static void
 setup_config (void)
 {
@@ -16,15 +18,14 @@ setup_config (void)
   FILE *config_file = fopen (file_name, "w");
   cr_assert_not_null (config_file);
   cJSON *json = cJSON_CreateObject ();
-  cr_assert_not_null (json);
-  cr_assert_not_null (cJSON_AddNumberToObject (json, "port", 8080));
-  cr_assert_not_null (cJSON_AddStringToObject (json, "ip", "127.0.0.1"));
-  cr_assert_not_null (cJSON_AddNumberToObject (json, "recv_header_sz", 8192));
-  cr_assert_not_null (cJSON_AddNumberToObject (json, "recv_body_sz", 2048));
-  cr_assert_not_null (cJSON_AddNumberToObject (json, "resp_header_sz", 16384));
-  cr_assert_not_null (cJSON_AddNumberToObject (json, "resp_body_sz", 4194304));
-  cr_assert_not_null (cJSON_AddNumberToObject (json, "timeout_s", 1));
-  cr_assert_not_null (cJSON_AddNumberToObject (json, "max_clients", 10));
+  cJSON_AddNumberToObject (json, "port", 8080);
+  cJSON_AddStringToObject (json, "ip", "127.0.0.1");
+  cJSON_AddNumberToObject (json, "recv_header_sz", 8192);
+  cJSON_AddNumberToObject (json, "recv_body_sz", 2048);
+  cJSON_AddNumberToObject (json, "resp_header_sz", 16384);
+  cJSON_AddNumberToObject (json, "resp_body_sz", 4194304);
+  cJSON_AddNumberToObject (json, "timeout_s", 1);
+  cJSON_AddNumberToObject (json, "max_clients", 10);
   char *json_text = cJSON_Print (json);
   fputs (json_text, config_file);
   free (json_text);
@@ -40,7 +41,7 @@ teardown_config (void)
   remove (file_name);
 }
 
-TestSuite (buffer_creation, .init = setup_config, .fini = teardown_config);
+TestSuite (requires_config, .init = setup_config, .fini = teardown_config);
 
 Test (_, config_not_null)
 {
@@ -63,7 +64,7 @@ Test (_, buffer_not_null)
       "bufs cannot be NULL\n") ERROR_MSG ("bufs cannot be NULL\n"));
 }
 
-Test (buffer_creation, buffer_setup)
+Test (requires_config, buffer_setup)
 {
   message_buffers *bufs = setup_buffers (config);
   cr_assert_not_null (bufs);
@@ -81,7 +82,7 @@ Test (buffer_creation, buffer_setup)
   cr_assert (bufs->resp.body.bytes_written == 0);
 }
 
-Test (buffer_creation, buffer_alloc)
+Test (requires_config, buffer_alloc)
 {
   message_buffers *bufs = setup_buffers (config);
   cr_assert_not_null (bufs);
@@ -101,7 +102,7 @@ Test (buffer_creation, buffer_alloc)
   free_bufs (bufs);
 }
 
-Test (buffer_creation, buffer_clear)
+Test (requires_config, buffer_clear)
 {
   message_buffers *bufs = setup_buffers (config);
   cr_assert_not_null (bufs);
@@ -132,7 +133,7 @@ Test (buffer_creation, buffer_clear)
   free_bufs (bufs);
 }
 
-Test (_, sockaddr_setup, .init = setup_config, .fini = teardown_config)
+Test (requires_config, sockaddr_setup)
 {
   sockaddr_in_p ipv4 = make_ipv4 (config);
   cr_assert_not_null (ipv4);
@@ -143,3 +144,24 @@ Test (_, sockaddr_setup, .init = setup_config, .fini = teardown_config)
       inet_ntop (AF_INET, &ipv4->sin_addr.s_addr, buffer, INET_ADDRSTRLEN));
   cr_assert (strcmp (buffer, config->addr) == 0);
 }
+
+Test (_, invalid_ip, .init = setup_config)
+{
+  cr_redirect_stderr ();
+  *config->addr = '\0';
+  sockaddr_in_p ipv4 = make_ipv4 (config);
+  cr_assert_null (ipv4);
+  cr_assert_stderr_eq_str (ERROR_MSG ("invalid ip address\n"));
+  remove (file_name);
+}
+
+/* Test (requires_config, buffer_alloc_fail)
+{
+  cr_redirect_stderr ();
+  config->recv_header_sz = -1;
+  message_buffers *bufs = setup_buffers (config);
+  cr_assert_not_null (bufs);
+  allocate_bufs (bufs);
+  cr_assert_stderr_eq_str ("buffer allocation failed\n");
+  cr_assert_null (bufs->recv.head.payload);
+} */

@@ -18,13 +18,14 @@ struct timeval interval;
 volatile sig_atomic_t running = 1;
 struct sockaddr_in client_addr = { 0 };
 socklen_t addr_len = sizeof (struct sockaddr_in);
-pid_t pid;
+pid_t pid = -1;
 
 static const char *
 handle_args (int argc, char const **argv)
 {
   if (argc > 2)
-    exit_error ("Invalid arguments. Usage: WebServer <opt: config_path>");
+    EXIT_ERROR (NULL,
+                "Invalid arguments. Usage: WebServer <opt: config_path>");
   if (argc == 2)
     return argv[1];
   return NULL;
@@ -43,39 +44,48 @@ static_exists ()
   struct stat info;
   if (!stat ("static", &info) && S_ISDIR (info.st_mode))
     return;
-  exit_error ("please provide a /static directory.");
+  EXIT_ERROR (, "please provide a /static directory.");
 }
-
 message_buffers *
 setup (int argc, char const **argv)
 {
+  NULL_CHECK (argv, NULL);
+  NULL_CHECK (*argv, NULL);
   pid = getpid ();
   const char *file_path = handle_args (argc, argv);
+#ifdef TEST
+  NULL_CHECK (file_path, NULL);
+#endif
   static_exists ();
-  server_config config = config_make (file_path ? file_path : DEFAULT_PATH);
+  server_config config
+      = config_make (file_path != NULL ? file_path : DEFAULT_PATH);
+  NULL_CHECK (config, NULL);
   //  getting the fd from the socket() syscall using IPv4 and TCP
   server = socket (AF_INET, SOCK_STREAM, TCP);
   if (server < 0)
     {
-      exit_error ("server socket error");
+      EXIT_ERROR (NULL, "server socket error");
     }
   const int enable = 1;
   if (setsockopt (server, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof (int)) < 0)
     {
+#ifdef DEBUG
       exit_error ("cannot set socket options");
+#endif
     }
   // set server struct
   sockaddr_in_p addr = make_ipv4 (config);
+  NULL_CHECK (addr, NULL);
   // bind server to socket and listen
   if (bind (server, (struct sockaddr *)addr, sizeof (*addr)) < 0)
     {
       config_destroy (&config);
-      exit_error ("cannot bind to port %u", ntohs (addr->sin_port));
+      EXIT_ERROR (NULL, "cannot bind to port %u", ntohs (addr->sin_port));
     }
   if (listen (server, config->max_clients) == -1)
     {
       config_destroy (&config);
-      exit_error ("cannot listen to port %u", ntohs (addr->sin_port));
+      EXIT_ERROR (NULL, "cannot listen to port %u", ntohs (addr->sin_port));
     }
   message_buffers *bufs = setup_buffers (config);
   interval.tv_sec = config->timeout_s;
