@@ -22,7 +22,7 @@ run (message_buffers *bufs)
           if (running)
             {
               free_bufs (bufs);
-              exit_error ("select failed");
+              EXIT_ERROR (, "select failed");
             }
           else
             break;

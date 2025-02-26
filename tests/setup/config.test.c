@@ -39,7 +39,7 @@ teardown ()
 
 TestSuite (parse_file, .fini = teardown);
 
-Test (config, not_null)
+Test (_, not_null)
 {
   cr_redirect_stderr ();
   server_config config = config_make (NULL);
@@ -47,7 +47,7 @@ Test (config, not_null)
   cr_stderr_match_str (ERROR_MSG ("file_name cannot be NULL"));
 }
 
-char *
+static char *
 missing_ip ()
 {
   cJSON *json = cJSON_CreateObject ();
@@ -72,7 +72,7 @@ Test (parse_file, attribute_missing)
       ERROR_MSG ("json imcomplete. Expected format: " JSON_FORMAT));
 }
 
-char *
+static char *
 no_attributes ()
 {
   cJSON *json = cJSON_CreateObject ();
@@ -90,7 +90,7 @@ Test (parse_file, empty_object)
       ERROR_MSG ("json imcomplete. Expected format: " JSON_FORMAT));
 }
 
-char *
+static char *
 unexpected_attribute ()
 {
   cJSON *json = cJSON_CreateObject ();
@@ -116,7 +116,7 @@ Test (parse_file, invalid_attribute)
       "invalid attribute in json. Expected format: " JSON_FORMAT);
 }
 
-char *
+static char *
 two_ports ()
 {
   cJSON *json = cJSON_CreateObject ();
@@ -146,7 +146,7 @@ Test (parse_file, attribute_twice)
   cr_assert_null (config);
 }
 
-char *
+static char *
 invalid_port ()
 {
   cJSON *json = cJSON_CreateObject ();
@@ -172,7 +172,7 @@ Test (parse_file, negative_port_number)
   cr_stderr_match_str (ERROR_MSG ("invalid port number: -12"));
 }
 
-char *
+static char *
 max_clients_exceeded ()
 {
   cJSON *json = cJSON_CreateObject ();
@@ -199,7 +199,7 @@ Test (parse_file, too_many_clients)
       ERROR_MSG ("maximum value for max_clients(100) exceeded"));
 }
 
-char *
+static char *
 zero_clients ()
 {
   cJSON *json = cJSON_CreateObject ();
