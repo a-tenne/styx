@@ -38,13 +38,11 @@ signal_handler (int signal)
     running = 0;
 }
 
-static void
+static bool
 static_exists ()
 {
   struct stat info;
-  if (!stat ("static", &info) && S_ISDIR (info.st_mode))
-    return;
-  EXIT_ERROR (, "please provide a /static directory.");
+  return stat ("static", &info) == 0 && S_ISDIR (info.st_mode);
 }
 message_buffers *
 setup (int argc, char const **argv)
@@ -56,7 +54,9 @@ setup (int argc, char const **argv)
 #ifdef TEST
   NULL_CHECK (file_path, NULL);
 #endif
-  static_exists ();
+  if (!static_exists ())
+    EXIT_ERROR (NULL, "please provide a /static directory.");
+
   server_config config
       = config_make (file_path != NULL ? file_path : DEFAULT_PATH);
   NULL_CHECK (config, NULL);

@@ -14,7 +14,7 @@ run (message_buffers *bufs)
       fd_set read_fds;
       FD_ZERO (&read_fds);
       FD_SET (server, &read_fds);
-      // 1 for 1 second interval, 0 for 0 (additional) nanoseconds;
+
       int ret = select (server + 1, &read_fds, NULL, NULL, &interval);
       if (ret == -1)
         {
@@ -45,6 +45,7 @@ run (message_buffers *bufs)
       if (pid == 0)
         {
           handle_connection (bufs);
+          // this is normally executed in main
 #ifdef TEST
           cleanup (bufs);
 #endif

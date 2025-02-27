@@ -17,7 +17,7 @@ static char file_name[100] = { '\0' };
   "\t\"resp_body_sz\": <number>,\n"                                           \
   "\t\"timeout_s\": <number>,\n"                                              \
   "\t\"max_clients\": <number>\n"                                             \
-  "}"
+  "}\n"
 
 static void
 setup (char *(*create_json_str) ())
@@ -44,7 +44,7 @@ Test (_, not_null)
   cr_redirect_stderr ();
   server_config config = config_make (NULL);
   cr_assert_null (config);
-  cr_stderr_match_str (ERROR_MSG ("file_name cannot be NULL"));
+  cr_assert_stderr_eq_str (ERROR_MSG ("file_name cannot be NULL\n"));
 }
 
 static char *
@@ -68,8 +68,8 @@ Test (parse_file, attribute_missing)
   cr_redirect_stderr ();
   setup (missing_ip);
   cr_expect_null (config_make (file_name));
-  cr_stderr_match_str (
-      ERROR_MSG ("json imcomplete. Expected format: " JSON_FORMAT));
+  cr_assert_stderr_eq_str (
+      ERROR_MSG ("json incomplete. Expected format: " JSON_FORMAT));
 }
 
 static char *
@@ -86,8 +86,8 @@ Test (parse_file, empty_object)
   cr_redirect_stderr ();
   setup (no_attributes);
   cr_expect_null (config_make (file_name));
-  cr_stderr_match_str (
-      ERROR_MSG ("json imcomplete. Expected format: " JSON_FORMAT));
+  cr_assert_stderr_eq_str (
+      ERROR_MSG ("json incomplete. Expected format: " JSON_FORMAT));
 }
 
 static char *
@@ -112,8 +112,8 @@ Test (parse_file, invalid_attribute)
   cr_redirect_stderr ();
   setup (unexpected_attribute);
   cr_expect_null (config_make (file_name));
-  cr_stderr_match_str (
-      "invalid attribute in json. Expected format: " JSON_FORMAT);
+  cr_assert_stderr_eq_str (
+      ERROR_MSG ("invalid attribute in json. Expected format: ") JSON_FORMAT);
 }
 
 static char *
@@ -141,7 +141,7 @@ Test (parse_file, attribute_twice)
   server_config config = config_make (file_name);
   cr_expect_not_null (config);
   cr_assert (config->port == 8081);
-  cr_stdout_match_str (WARN_MSG ("port set twice"));
+  cr_assert_stdout_eq_str (WARN_MSG ("port set twice\n"));
   config_destroy (&config);
   cr_assert_null (config);
 }
@@ -169,7 +169,7 @@ Test (parse_file, negative_port_number)
   setup (invalid_port);
   server_config config = config_make (file_name);
   cr_assert_null (config);
-  cr_stderr_match_str (ERROR_MSG ("invalid port number: -12"));
+  cr_assert_stderr_eq_str (ERROR_MSG ("invalid port number: -12\n"));
 }
 
 static char *
@@ -195,8 +195,8 @@ Test (parse_file, too_many_clients)
   setup (max_clients_exceeded);
   server_config config = config_make (file_name);
   cr_assert_null (config);
-  cr_stderr_match_str (
-      ERROR_MSG ("maximum value for max_clients(100) exceeded"));
+  cr_assert_stderr_eq_str (
+      ERROR_MSG ("maximum value for max_clients(100) exceeded\n"));
 }
 
 static char *
@@ -222,7 +222,7 @@ Test (parse_file, not_enough_clients)
   setup (zero_clients);
   server_config config = config_make (file_name);
   cr_assert_null (config);
-  cr_stderr_match_str (ERROR_MSG ("max_clients can't be zero or less"));
+  cr_assert_stderr_eq_str (ERROR_MSG ("max_clients can't be zero or less\n"));
 }
 
 Test (_, invalid_file)
@@ -230,37 +230,36 @@ Test (_, invalid_file)
   cr_redirect_stderr ();
   server_config config = config_make ("_");
   cr_assert_null (config);
-  cr_stderr_match_str (ERROR_MSG ("file _ cannot be opened"));
+  cr_assert_stderr_eq_str (ERROR_MSG ("file _ cannot be opened\n"));
 }
 
-Test (_, non_json)
+Test (_, empty_file)
 {
   cr_redirect_stderr ();
-  sprintf (file_name, "%d.txt", getpid ());
+  sprintf (file_name, "%d.json", getpid ());
+  char expect_msg[256] = { '\0' };
+  sprintf (expect_msg, "%sfile %s is empty\n", ERROR_MSG (), file_name);
   FILE *file = fopen (file_name, "w");
   cr_assert_not_null (file);
   fclose (file);
   server_config config = config_make (file_name);
   remove (file_name);
   cr_assert_null (config);
-  cr_stderr_match_str (ERROR_MSG ("json parsing failed"));
+  cr_assert_stderr_eq_str (expect_msg);
 }
 
-Test (_, file_busy)
+Test (_, file_not_json)
 {
   cr_redirect_stderr ();
   sprintf (file_name, "%d.txt", getpid ());
+  char expect_msg[256] = { '\0' };
+  sprintf (expect_msg, "%sfile %s is empty\n", ERROR_MSG (), file_name);
   FILE *file = fopen (file_name, "w");
   cr_assert_not_null (file);
+  fprintf (file, "{\"\"\"");
   fclose (file);
-  file = fopen (file_name, "a");
-  cr_assert_not_null (file);
   server_config config = config_make (file_name);
-  fclose (file);
   remove (file_name);
   cr_assert_null (config);
-  char error_msg[100] = { '\0' };
-  strcpy (error_msg, ERROR_MSG ("cannot find end of "));
-  strcat (error_msg, file_name);
-  cr_stderr_match_str (error_msg);
+  cr_assert_stderr_eq_str (ERROR_MSG ("json parsing failed\n"));
 }

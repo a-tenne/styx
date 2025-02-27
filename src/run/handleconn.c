@@ -14,6 +14,7 @@
 void
 handle_connection (message_buffers *bufs)
 {
+  NULL_CHECK (bufs, );
   close (server);
   server = 0;
   allocate_bufs (bufs);
@@ -22,13 +23,18 @@ handle_connection (message_buffers *bufs)
                              .max_requests = 100,
                              .timeout = { .tv_sec = 5, .tv_usec = 0 },
                              .current_request = 100 };
+
+  // criterion leaks memory on longer timeouts
+#ifdef TEST
+  state.timeout.tv_sec = 1;
+#endif
   while (running && state.keep_alive && state.current_request > 0)
     {
 
       fd_set read_fds;
       FD_ZERO (&read_fds);
       FD_SET (connection, &read_fds);
-      // 1 for 1 second interval, 0 for 0 (additional) nanoseconds;
+
       int ret = select (connection + 1, &read_fds, NULL, NULL, &state.timeout);
       if (ret == -1)
         {

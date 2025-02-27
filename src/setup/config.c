@@ -193,9 +193,15 @@ config_make (const char *file_name)
       EXIT_ERROR (NULL, "cannot find end of %s", file_name);
     }
   long buf_size = ftell (file);
+  if (buf_size == 0)
+    {
+      fclose (file);
+      config_destroy (&config);
+      EXIT_ERROR (NULL, "file %s is empty", file_name);
+    }
   char buf[buf_size + 1];
   memset (buf, 0, buf_size + 1);
-  if (buf_size <= 0)
+  if (buf_size < 0)
     {
       fclose (file);
       config_destroy (&config);

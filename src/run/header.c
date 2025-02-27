@@ -66,18 +66,21 @@ vec_append (header_vec *vec, const char *key, const char *value)
 static bool
 vec_append_line (header_vec *vec, char *line)
 {
-  if (!line)
+  if (line == NULL)
     return false;
   regex_t regex;
   int regi = regcomp (&regex,
-                      "^[[:alpha:]]+(-[[:alpha:]]+)*\\s*:\\s*\\S+(\\s+\\S+)*$",
+                      "^[[:alpha:]]+(-[[:alpha:]]+)*[[:blank:]]*:[[:blank:]]*["
+                      "^[:blank:]]+([[:blank:]]+[^[:blank:]]+)*$",
                       REG_EXTENDED);
+#ifdef DEBUG
   if (regi != 0)
     {
       regfree (&regex);
       warning ("unable to compile regex.");
       return false;
     }
+#endif
   regi = regexec (&regex, line, 0, NULL, 0);
   regfree (&regex);
   if (regi != 0)
@@ -111,26 +114,20 @@ meta_data (header_data *data, char *first_line)
   char *path = strtok_r (NULL, " ", &saveptr);
   char *version = strtok_r (NULL, " ", &saveptr);
 
-  if (!(method && path && version))
-    warning ("meta data < 3");
-
-  if (strtok_r (NULL, " ", &saveptr))
-    warning ("meta data > 3");
-
-  data->method = malloc (strlen (method) + 1);
+  data->method = strdup (method);
   if (!data->method)
     {
       warning ("cannot allocate memory for method");
       return;
     }
-  data->path = malloc (strlen (path) + 1);
+  data->path = strdup (path);
   if (!data->path)
     {
       free (data->method);
       warning ("cannot allocate memory for path");
       return;
     }
-  data->version = malloc (strlen (version) + 1);
+  data->version = strdup (version);
   if (!data->version)
     {
       free (data->method);
@@ -138,28 +135,53 @@ meta_data (header_data *data, char *first_line)
       warning ("cannot allocate memory for version");
       return;
     }
-  strcpy (data->method, method);
-  strcpy (data->path, path);
-  strcpy (data->version, version);
 }
 
 header_data *
 parse (char *header_str)
 {
+  NULL_CHECK (header_str, NULL);
+  if (*header_str == '\0')
+    {
+      warning ("empty header string");
+      return NULL;
+    }
   static header_data data;
   memset (&data, 0, sizeof (data));
   char *saveptr;
-  char *token = strtok_r (header_str, "\r\n", &saveptr);
-  if (!token)
+  regex_t regex;
+  int regi = regcomp (&regex,
+                      "^[A-Z]+ (/|(/[^[:space:]/]+)+) "
+                      "HTTP/[[:digit:]]+(.[[:digit:]]+)?$",
+                      REG_EXTENDED);
+#ifdef DEBUG
+  if (regi != 0)
     {
-      warning ("Empty header.");
-      return NULL;
+      regfree (&regex);
+      warning ("unable to compile regex.");
+      return false;
     }
+#endif
+  char *title = strstr (header_str, "\r\n");
+  char *token = strtok_r (header_str, "\r\n", &saveptr);
+  if (title == NULL)
+    goto invalid_header;
+  regi = regexec (&regex, token, 0, NULL, 0);
+  regfree (&regex);
+  if (regi != 0)
+    {
+    invalid_header:
+      regfree (&regex);
+      warning ("invalid header format: %s",
+               token == NULL ? header_str : token);
+      return false;
+    }
+
   meta_data (&data, token);
 
   bool result = true;
   token = strtok_r (NULL, "\r\n", &saveptr);
-  while (token && result)
+  while (token != NULL && result)
     {
       result = vec_append_line (&data.h_vec, token);
       token = strtok_r (NULL, "\r\n", &saveptr);
