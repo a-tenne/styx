@@ -1,5 +1,6 @@
 #include "config.h"
 #include "cJSON.h"
+#include "config.bufsizes.h"
 #include <criterion/criterion.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,8 +19,8 @@ setup_config (int port)
   cJSON *json = cJSON_CreateObject ();
   cJSON_AddNumberToObject (json, "port", port);
   cJSON_AddStringToObject (json, "ip", "127.0.0.1");
-  cJSON_AddNumberToObject (json, "recv_header_sz", 8192);
-  cJSON_AddNumberToObject (json, "recv_body_sz", 2048);
+  cJSON_AddNumberToObject (json, "recv_header_sz", RECV_HEADER_SIZE);
+  cJSON_AddNumberToObject (json, "recv_body_sz", RECV_BODY_SIZE);
   cJSON_AddNumberToObject (json, "resp_header_sz", 16384);
   cJSON_AddNumberToObject (json, "resp_body_sz", 4194304);
   cJSON_AddNumberToObject (json, "timeout_s", 1);

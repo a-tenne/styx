@@ -47,6 +47,7 @@ static_exists ()
 message_buffers *
 setup (int argc, char const **argv)
 {
+  static struct timeval timeout = { .tv_sec = 1 };
   NULL_CHECK (argv, NULL);
   NULL_CHECK (*argv, NULL);
   pid = getpid ();
@@ -68,6 +69,13 @@ setup (int argc, char const **argv)
     }
   const int enable = 1;
   if (setsockopt (server, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof (int)) < 0)
+    {
+#ifdef DEBUG
+      exit_error ("cannot set socket options");
+#endif
+    }
+  if (setsockopt (server, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof (timeout))
+      < 0)
     {
 #ifdef DEBUG
       exit_error ("cannot set socket options");

@@ -3,12 +3,15 @@
 #include "globals.h"
 #include "handleconn.h"
 #include "mem.h"
+#include <aio.h>
 #include <sys/select.h>
+#include <time.h>
 #include <unistd.h>
 
 void
 run (message_buffers *bufs)
 {
+  struct timespec loop_limiter = { .tv_sec = 0, .tv_nsec = 10000 };
   while (running)
     {
       fd_set read_fds;
@@ -56,5 +59,6 @@ run (message_buffers *bufs)
           close (connection);
           connection = 0;
         }
+      nanosleep (&loop_limiter, NULL);
     }
 }

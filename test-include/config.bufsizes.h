@@ -1,0 +1,7 @@
+#ifndef _CONFIG_BUFSIZES_H
+#define _CONFIG_BUFSIZES_H
+
+#define RECV_HEADER_SIZE 8192
+#define RECV_BODY_SIZE 2048
+
+#endif

@@ -13,6 +13,8 @@
 static size_t
 process_header_fields (header_data *data, connection_state *state)
 {
+  NULL_CHECK (data, 0);
+  NULL_CHECK (state, 0);
   size_t content_length = 0;
   char *saveptr;
   char *token;
@@ -36,6 +38,8 @@ process_header_fields (header_data *data, connection_state *state)
 header_data *
 request (message_buffers *bufs, connection_state *state)
 {
+  NULL_CHECK (bufs, NULL);
+  NULL_CHECK (state, NULL);
   ssize_t bytes_read = 0;
   char *header_end = NULL;
   bytes_read = recv (connection, bufs->recv.head.payload,
@@ -60,12 +64,13 @@ request (message_buffers *bufs, connection_state *state)
     {
       if (bufs->recv.head.size - 1 == bytes_read)
         {
-          warning ("request header size %ld exceeded", bufs->recv.head.size);
+          warning ("request header size %ld exceeded",
+                   bufs->recv.head.size - 1);
           state->code = REQU_HEAD_FIELDS_TOO_LARGE;
         }
       else
         {
-          warning ("connection not http");
+          warning ("Connection terminated: not HTTP");
           state->code = CLOSE;
           state->keep_alive = false;
         }
@@ -82,7 +87,6 @@ request (message_buffers *bufs, connection_state *state)
   memmove (bufs->recv.body.payload, body_start, body_len);
   bufs->recv.body.bytes_written += body_len;
   *body_start = '\0';
-
   if (data == NULL)
     {
       state->code = BAD_REQUEST;
@@ -121,6 +125,7 @@ request (message_buffers *bufs, connection_state *state)
   printf ("Body:\n");
   if (bufs->recv.body.bytes_written > 0)
     {
+      printf ("byte-size: %lu\n", bufs->recv.body.bytes_written);
       write (1, bufs->recv.body.payload, bufs->recv.body.bytes_written);
       putc ('\n', stdout);
     }
