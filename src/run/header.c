@@ -162,9 +162,10 @@ parse (char *header_str)
       return false;
     }
 #endif
+  // sanitize the header title string
   char *title = strstr (header_str, "\r\n");
   char *token = strtok_r (header_str, "\r\n", &saveptr);
-  if (title == NULL)
+  if (title == NULL || strstr (token, "..") != NULL)
     goto invalid_header;
   regi = regexec (&regex, token, 0, NULL, 0);
   regfree (&regex);

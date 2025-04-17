@@ -66,7 +66,7 @@ being valid build flags. This can generate two different binaries in the build d
 > To run the program, you will need two things:
 >
 > - A JSON config file (a default file comes with the repository)
-> - A static directory, where the servable files reside
+> - Create a `static` directory, where the servable files reside
 
 Running it without one of these two will result in an error, which gracefully exits the program. However, you do NOT need them to run tests. Config file parsing is very strict, meaning that you can't leave out or add any properties. The default one looks like this:
 
