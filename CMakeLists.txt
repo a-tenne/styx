@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.11)
+
 project(Styx C)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 
 # Build cJSON as static library
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)

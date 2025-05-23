@@ -1,5 +1,4 @@
 #include "errlog.h"
-#include "global_types.h"
 #include "globals.h"
 #include <errno.h>
 #include <stdarg.h>

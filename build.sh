@@ -15,5 +15,5 @@ else
     echo "Invalid build type: \"$1\". Valid build types: $build_types"
     exit 1
 fi
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE="${cmake_build_type}"
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE="${cmake_build_type}" -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 cmake --build build

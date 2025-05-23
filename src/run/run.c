@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
-#include "buf.h"
 #include "cleanup.h"
+#include "buf.h"
 #include "errlog.h"
 #include "globals.h"
 #include "handleconn.h"

@@ -2,7 +2,6 @@
 #include "buf.h"
 #include "config.h"
 #include "errlog.h"
-#include "global_types.h"
 #include <arpa/inet.h>
 #include <inttypes.h>
 #include <stdlib.h>

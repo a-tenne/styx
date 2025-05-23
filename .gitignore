@@ -4,3 +4,4 @@ Tests
 .vscode
 static/*
 coverage
+.cache
